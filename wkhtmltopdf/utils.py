@@ -83,7 +83,9 @@ def wkhtmltopdf(pages, output=None, **kwargs):
                       _options_to_args(**options),
                       list(pages),
                       [output]))
-    return check_output(args, stderr=sys.stderr, env=env)
+
+    stderr = getattr(settings, 'WKHTMLTOPDF_STDERR', sys.stderr)
+    return check_output(args, stderr=stderr, env=env)
 
 
 def content_disposition_filename(filename):
