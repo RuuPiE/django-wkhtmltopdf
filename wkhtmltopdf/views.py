@@ -71,7 +71,7 @@ class PDFTemplateResponse(TemplateResponse, PDFResponse):
         context = self.resolve_context(self.context_data)
         content = smart_str(template.render(context))
 
-        content = self.make_absolute_paths(content)
+        content = make_absolute_paths(content)
 
         tempfile = NamedTemporaryFile(mode=mode, bufsize=bufsize,
                                       suffix=suffix, prefix=prefix,
@@ -143,35 +143,39 @@ class PDFTemplateResponse(TemplateResponse, PDFResponse):
             for f in filter(None, (input_file, header_file, footer_file)):
                 f.close()
 
-    def make_absolute_paths(self, content):
-        """Convert all MEDIA files into a file://URL paths in order to correctly get it displayed in PDFs
+def make_absolute_paths(content):
+    """Convert all MEDIA files into a file://URL paths in order to correctly get it displayed in PDFs
 
-        mattl's disclaimer: I know it sucks, but it works and I haz no time for better solution now
-        """
+    mattl's disclaimer: I know it sucks, but it works and I haz no time for better solution now
+    """
 
-        overrides = [
-            {
-            'root': settings.MEDIA_ROOT,
-            'url': settings.MEDIA_URL,
-            },
-            {
-            'root': settings.STATIC_ROOT,
-            'url': settings.STATIC_URL,
-            }
-        ]
-        has_scheme = re.compile(r'^[^:/]+://')
+    overrides = [
+        {
+        'root': settings.MEDIA_ROOT,
+        'url': settings.MEDIA_URL,
+        },
+        {
+        'root': settings.STATIC_ROOT,
+        'url': settings.STATIC_URL,
+        }
+    ]
+    has_scheme = re.compile(r'^[^:/]+://')
 
-        for x in overrides:
-            if has_scheme.match(x['url']):
+    for x in overrides:
+        if has_scheme.match(x['url']):
+            continue
+
+        if not x['root'].endswith('/'):
+            x['root'] += '/'
+
+        occurred = set()
+        for occur in re.findall('''["|']({0}.*?)["|']'''.format(x['url']), content):
+            if occur in occurred:
                 continue
+            occurred.add(occur) 
+            content = content.replace(occur, pathname2fileurl(x['root']) + occur[len(x['url']):])
 
-            if not x['root'].endswith('/'):
-                x['root'] += '/'
-
-            for occur in re.findall('''["|']({0}.*?)["|']'''.format(x['url']), content):
-                content = content.replace(occur, pathname2fileurl(x['root']) + occur[len(x['url']):])
-
-        return content
+    return content
 
 
 class PDFTemplateView(TemplateView):
